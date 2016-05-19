@@ -187,12 +187,19 @@ class GsmModem(SerialComms):
             pinCheckComplete = False
         self.write('ATE0') # echo off
         try:
-            cfun = int(lineStartingWith('+CFUN:', self.write('AT+CFUN?'))[7:]) # example response: +CFUN: 1
+            cfun_line = self.write('AT+CFUN?') # example response: +CFUN: 1
+            cfun = int(lineStartingWith('+CFUN:', cfun_line)[7:])
             if cfun != 1:
                 self.write('AT+CFUN=1')
         except CommandError:
             pass # just ignore if the +CFUN command isn't supported
-                
+        except TypeError as e:
+            # lineStartingWith returned None
+            self.log.warning("AT+CFUN? response did not start with \"+CFUN:\": \"%s\" - \"%s\"", cfun_line, e.message)
+        except ValueError as e:
+            # sliced content did not contain anything which could be converted to an integer
+            self.log.warning("Invalid AT+CFUN? response: \"%s\" - \"%s\"", cfun_line, e.message)
+
         self.write('AT+CMEE=1') # enable detailed error messages (even if it has already been set - ATZ may reset this)
         if not pinCheckComplete:
             self._unlockSim(pin)
